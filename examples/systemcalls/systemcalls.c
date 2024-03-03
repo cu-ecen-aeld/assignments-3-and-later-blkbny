@@ -1,4 +1,9 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -9,15 +14,15 @@
 */
 bool do_system(const char *cmd)
 {
+    bool retVal = true;
 
-/*
- * TODO  add your code here
- *  Call the system() function with the command set in the cmd
- *   and return a boolean true if the system() call completed with success
- *   or false() if it returned a failure
-*/
+    // call system()
+    if (system(cmd) != 0)
+    {
+        retVal = false;
+    }
 
-    return true;
+    return retVal;
 }
 
 /**
@@ -38,6 +43,9 @@ bool do_exec(int count, ...)
 {
     va_list args;
     va_start(args, count);
+    bool retVal = true;
+    pid_t pid;
+    int status;
     char * command[count+1];
     int i;
     for(i=0; i<count; i++)
@@ -49,19 +57,39 @@ bool do_exec(int count, ...)
     // and may be removed
     command[count] = command[count];
 
-/*
- * TODO:
- *   Execute a system command by calling fork, execv(),
- *   and wait instead of system (see LSP page 161).
- *   Use the command[0] as the full path to the command to execute
- *   (first argument to execv), and use the remaining arguments
- *   as second argument to the execv() command.
- *
-*/
+    // Attempt to Fork the proccess. If not successful, set retVal to false. 
+    pid = fork();
+    if (pid == -1)
+    {
+        retVal = false;
+    }
+    // If this is the child, attempt to switch to a new proccess by running the command. If not successful, exit(-1)
+    else if (pid == 0)
+    {
+        if (execv(command[0], command) == -1)
+        {
+            exit (-1);
+        }
+    }
+    // if this is the parent, wait for the child to terminate. Child encountered error, set retVal to false.
+    else
+    {
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            retVal = false;
+        }
+        else if (WIFEXITED(status))
+        {
+            if (WEXITSTATUS(status) != 0)
+            {
+                retVal = false;
+            }
+        }
+    }
 
     va_end(args);
 
-    return true;
+    return retVal;
 }
 
 /**
@@ -73,6 +101,10 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 {
     va_list args;
     va_start(args, count);
+    bool retVal = true;
+    pid_t pid;
+    int status;
+    int fd = -1;
     char * command[count+1];
     int i;
     for(i=0; i<count; i++)
@@ -84,16 +116,52 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     // and may be removed
     command[count] = command[count];
 
+    // open the output file
+    if (outputfile != NULL)
+    {
+        fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    }
 
-/*
- * TODO
- *   Call execv, but first using https://stackoverflow.com/a/13784315/1446624 as a refernce,
- *   redirect standard out to a file specified by outputfile.
- *   The rest of the behaviour is same as do_exec()
- *
-*/
+    // Attempt to Fork the proccess. If not successful, set retVal to false. 
+    pid = fork();
+    if (pid == -1)
+    {
+        retVal = false;
+    }
+    // If this is the child, attempt to switch to a new proccess by running the command. If not successful, exit(-1)
+    else if (pid == 0)
+    {
+        if (fd != -1)
+        {
+            dup2(fd, 1);
+            close(fd);
+        }
+        if (execv(command[0], command) == -1)
+        {
+            exit (-1);
+        }
+    }
+    // if this is the parent, wait for the child to terminate. Child encountered error, set retVal to false.
+    else
+    {
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            retVal = false;
+        }
+        else if (WIFEXITED(status))
+        {
+            if (WEXITSTATUS(status) != 0)
+            {
+                retVal = false;
+            }
+        }
+        if (fd != -1)
+        {
+            close(fd);
+        }
+    }
 
     va_end(args);
 
-    return true;
+    return retVal;
 }
