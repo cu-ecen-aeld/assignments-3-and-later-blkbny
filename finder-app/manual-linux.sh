@@ -34,21 +34,25 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
 
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends bc u-boot-tools kmod cpio flex bison libssl-dev psmisc
+    sudo apt-get install -y qemu-system-arm
+
     # Step 1: Clean the Build (see: Building the Linux Kernel video @ 6:47)
     echo "Step 1: Clean the Build"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
 
     # Step 2: Create Config (see: Building the Linux Kernel video @ 7:10)
     echo "Step 2: Create Config"
-    make RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
 
     # Step 3: Build vmlinux (see: Building the Linux Kernel video @ 7:28)
     echo "Step 3: Build vmlinux"
-    make -j4 RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 
     # Step 4: Build devicetree (see: Building the Linux Kernel video @ 7:53)
-    echo "Build devicetree"
-    make RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+    echo "Step 4: Build devicetree"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 
 fi
 
@@ -62,7 +66,11 @@ then
     sudo rm  -rf ${OUTDIR}/rootfs
 fi
 
-# TODO: Create necessary base directories
+# Create necessary base directories (see: Linux Root Filesystems video @ 6:49)
+echo "Create necessary base directories"
+mkdir -p rootfs/bin rootfs/dev rootfs/etc rootfs/lib rootfs/lib64 rootfs/proc rootfs/sys rootfs/sbin rootfs/tmp rootfs/usr rootfs/var
+mkdir -p rootfs/usr/bin rootfs/usr/lib rootfs/usr/sbin 
+mkdir -p rootfs/var/log
 
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/busybox" ]
@@ -70,12 +78,21 @@ then
 git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
-    # TODO:  Configure busybox
+    # Configure busybox (see: Linux Root Filesystems video @ 8:47)
+    echo "Configure busybox"
+    make distclean
+    make defconfig
+
 else
     cd busybox
 fi
 
-# TODO: Make and install busybox
+# Make and install busybox (see: Linux Root Filesystems video @ 8:47)
+echo "Make and install busybox"
+make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+make CONFIG_PREFIX="${OUTDIR}/rootfs" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+
+cd ../rootfs
 
 echo "Library dependencies"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
