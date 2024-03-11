@@ -34,7 +34,22 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
 
-    # TODO: Add your kernel build steps here
+    # Step 1: Clean the Build (see: Building the Linux Kernel video @ 6:47)
+    echo "Step 1: Clean the Build"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
+
+    # Step 2: Create Config (see: Building the Linux Kernel video @ 7:10)
+    echo "Step 2: Create Config"
+    make RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
+
+    # Step 3: Build vmlinux (see: Building the Linux Kernel video @ 7:28)
+    echo "Step 3: Build vmlinux"
+    make -j4 RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+
+    # Step 4: Build devicetree (see: Building the Linux Kernel video @ 7:53)
+    echo "Build devicetree"
+    make RCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+
 fi
 
 echo "Adding the Image in outdir"
