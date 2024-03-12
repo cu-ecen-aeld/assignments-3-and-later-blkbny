@@ -48,15 +48,16 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
 
     # Step 3: Build vmlinux (see: Building the Linux Kernel video @ 7:28)
     echo "Step 3: Build vmlinux"
-    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
 
     # Step 4: Build devicetree (see: Building the Linux Kernel video @ 7:53)
     echo "Step 4: Build devicetree"
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+    #make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 
 fi
 
 echo "Adding the Image in outdir"
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
@@ -68,9 +69,10 @@ fi
 
 # Create necessary base directories (see: Linux Root Filesystems video @ 6:49)
 echo "Create necessary base directories"
-mkdir -p rootfs/bin rootfs/dev rootfs/etc rootfs/lib rootfs/lib64 rootfs/proc rootfs/sys rootfs/sbin rootfs/tmp rootfs/usr rootfs/var
+mkdir -p rootfs/bin rootfs/dev rootfs/etc rootfs/lib rootfs/lib64 rootfs/proc rootfs/sys rootfs/sbin rootfs/tmp rootfs/usr rootfs/var rootfs/home
 mkdir -p rootfs/usr/bin rootfs/usr/lib rootfs/usr/sbin 
 mkdir -p rootfs/var/log
+mkdir -p rootfs/home/conf
 
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/busybox" ]
@@ -92,21 +94,48 @@ echo "Make and install busybox"
 make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 make CONFIG_PREFIX="${OUTDIR}/rootfs" ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
-cd ../rootfs
-
 echo "Library dependencies"
+cd ${OUTDIR}/rootfs
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
-# TODO: Add library dependencies to rootfs
+# Add library dependencies to rootfs (see: Linux Root Filesystems video @ 9:21)
+echo "Add library dependencies to rootfs"
+SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
+cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 lib/
+cp ${SYSROOT}/lib64/libm.so.6 lib64/
+cp ${SYSROOT}/lib64/libresolv.so.2 lib64/
+cp ${SYSROOT}/lib64/libc.so.6 lib64/
 
-# TODO: Make device nodes
+# Make device nodes (see: Linux Root Filesystems video @ 11:32)
+echo "Make device nodes"
+sudo mknod -m 666 dev/null c 1 3
+sudo mknod -m 666 dev/console c 5 1
 
-# TODO: Clean and build the writer utility
+# Clean and build the writer utility from the previous assignments
+echo "Clean and build the writer utility from the previous assignments"
+cd ${FINDER_APP_DIR}
+make clean
+make CROSS_COMPILE=${CROSS_COMPILE}
 
-# TODO: Copy the finder related scripts and executables to the /home directory
-# on the target rootfs
+# Copy the finder related scripts and executables to the /home director on the target rootfs
+echo "Copy the finder related scripts and executables to the /home director on the target rootfs"
+cp ${FINDER_APP_DIR}/finder.sh ${OUTDIR}/rootfs/home
+cp ${FINDER_APP_DIR}/finder-test.sh ${OUTDIR}/rootfs/home
+cp ${FINDER_APP_DIR}/writer ${OUTDIR}/rootfs/home
+cp ${FINDER_APP_DIR}/autorun-qemu.sh ${OUTDIR}/rootfs/home
+cp ${FINDER_APP_DIR}/conf/assignment.txt ${OUTDIR}/rootfs/home/conf
+cp ${FINDER_APP_DIR}/conf/username.txt ${OUTDIR}/rootfs/home/conf
 
-# TODO: Chown the root directory
 
-# TODO: Create initramfs.cpio.gz
+# Chown the root directory (see: Linux Root Filesystems video @ 13:25)
+echo "Chown the root directory"
+cd ${OUTDIR}/rootfs
+sudo chown -R root:root *
+
+# Create initramfs.cpio.gz (see: Linux Root Filesystems video @ 13:25)
+echo "Create initramfs.cpio.gz"
+cd ${OUTDIR}/rootfs
+find . | cpio -H newc -ov --owner root:root > ${OUTDIR}/initramfs.cpio
+cd ${OUTDIR}
+gzip -f initramfs.cpio
