@@ -52,7 +52,7 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
 
     # Step 4: Build devicetree (see: Building the Linux Kernel video @ 7:53)
     echo "Step 4: Build devicetree"
-    #make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 
 fi
 
